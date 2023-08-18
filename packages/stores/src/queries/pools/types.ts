@@ -3,10 +3,15 @@ import { StablePoolRaw, WeightedPoolRaw } from "@osmosis-labs/pools";
 
 import { ObservableQueryPool } from "./pool";
 
-export interface PoolGetter extends ObservableQuery {
-  getPool(id: string): ObservableQueryPool | undefined;
+export interface PoolGetter<PoolType> {
+  getPool(id: string): PoolType | undefined;
   poolExists(id: string): boolean | undefined;
-  getAllPools(): ObservableQueryPool[];
+  getAllPools(): PoolType[];
+}
+
+export interface ObservableQueryPoolGetter
+  extends PoolGetter<ObservableQueryPool>,
+    ObservableQuery {
   paginate(): void;
   fetchRemainingPools(): void;
 }
@@ -19,6 +24,11 @@ export type NumPools = {
   num_pools: string;
 };
 
-export type Head<T extends any[]> = T extends [...infer Head, any]
-  ? Head
-  : any[];
+export type MigrationRecords = {
+  migration_records: {
+    balancer_to_concentrated_pool_links: {
+      balancer_pool_id: string;
+      cl_pool_id: string;
+    }[];
+  };
+};

@@ -1,4 +1,4 @@
-import { SourceChainTokenConfig } from "./types";
+import { SourceChainTokenConfig } from "~/integrations/axelar/types";
 
 const IS_TESTNET = process.env.NEXT_PUBLIC_IS_TESTNET === "true";
 
@@ -180,6 +180,41 @@ export const SourceChainTokenConfigs: {
       logoUrl: "/networks/ethereum.svg",
     },
   },
+  pepe: {
+    ethereum: {
+      id: "Ethereum" as const,
+      erc20ContractAddress: "0x6982508145454Ce325dDbE47a25d4ec3d2311933",
+      logoUrl: "/networks/ethereum.svg",
+    },
+  },
+  cbeth: {
+    ethereum: {
+      id: "Ethereum" as const,
+      erc20ContractAddress: "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+      logoUrl: "/networks/ethereum.svg",
+    },
+  },
+  reth: {
+    ethereum: {
+      id: "Ethereum" as const,
+      erc20ContractAddress: "0xae78736cd615f374d3085123a210448e74fc6393",
+      logoUrl: "/networks/ethereum.svg",
+    },
+  },
+  sfrxeth: {
+    ethereum: {
+      id: "Ethereum" as const,
+      erc20ContractAddress: "0xac3e018457b222d93114458476f3e3416abbe38f",
+      logoUrl: "/networks/ethereum.svg",
+    },
+  },
+  wsteth: {
+    ethereum: {
+      id: "Ethereum" as const,
+      erc20ContractAddress: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      logoUrl: "/networks/ethereum.svg",
+    },
+  },
   wbnb: {
     binance: {
       id: IS_TESTNET
@@ -255,6 +290,26 @@ export const SourceChainTokenConfigs: {
       id: "Avalanche" as const,
       erc20ContractAddress: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
       logoUrl: "/networks/avalanche.svg",
+    },
+  },
+  wfil: {
+    filecoin: {
+      id: IS_TESTNET ? ("Filecoin Hyperspace" as const) : ("Filecoin" as const),
+      erc20ContractAddress: IS_TESTNET
+        ? "0x6C297AeD654816dc5d211c956DE816Ba923475D2"
+        : "0x60E1773636CF5E4A227d9AC24F20fEca034ee25A",
+      logoUrl: "/networks/filecoin.svg",
+      nativeWrapEquivalent: {
+        wrapDenom: "WFIL",
+        tokenMinDenom: "fil",
+      },
+    },
+  },
+  arb: {
+    arbitrum: {
+      id: "Arbitrum" as const,
+      erc20ContractAddress: "0x912CE59144191C1204E64559FE8253a0e49E6548",
+      logoUrl: "/networks/arbitrum.svg",
     },
   },
 };

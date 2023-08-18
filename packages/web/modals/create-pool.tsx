@@ -1,13 +1,14 @@
-import { FunctionComponent, useState } from "react";
-import { observer } from "mobx-react-lite";
 import { ObservableCreatePoolConfig } from "@osmosis-labs/stores";
+import { observer } from "mobx-react-lite";
+import { FunctionComponent, useState } from "react";
+
 import {
   SelectType,
   Step1SetRatios,
   Step2AddLiquidity,
   Step3Confirm,
-} from "../components/complex/pool/create";
-import { ModalBase, ModalBaseProps } from ".";
+} from "~/components/complex/pool/create";
+import { ModalBase, ModalBaseProps } from "~/modals";
 
 export const CreatePoolModal: FunctionComponent<
   ModalBaseProps & {
@@ -47,7 +48,7 @@ export const CreatePoolModal: FunctionComponent<
             config.setPoolType(type);
             setCurStep(1);
           }}
-        ></SelectType>
+        />
       )}
       {curStep === 1 && (
         <Step1SetRatios createPoolConfig={config} advanceStep={advanceStep} />

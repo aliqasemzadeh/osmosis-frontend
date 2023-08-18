@@ -2,32 +2,48 @@ import { Bech32Address } from "@keplr-wallet/cosmos";
 import { CoinPretty } from "@keplr-wallet/unit";
 import classNames from "classnames";
 import { observer } from "mobx-react-lite";
-import { FunctionComponent, useEffect, useState } from "react";
+import Image from "next/image";
+import { FunctionComponent, useRef, useState } from "react";
 import { useTranslation } from "react-multi-lang";
+import { useClickAway } from "react-use";
 
-import { useWindowSize } from "../../hooks";
-import { truncateEthAddress } from "../../integrations/ethereum/metamask-utils";
-import { WalletDisplay } from "../../integrations/wallets";
-import { useStore } from "../../stores";
-import { formatICNSName } from "../../utils/string";
-import { BridgeAnimation } from "../animation/bridge";
-import { GradientView } from "../assets/gradient-view";
-import { Button } from "../buttons";
-import { SwitchWalletButton } from "../buttons/switch-wallet";
-import { CheckBox, MenuToggle } from "../control";
-import { InputBox } from "../input";
-import { Disableable, InputProps } from "../types";
+import { BridgeAnimation } from "~/components/animation/bridge";
+import { Icon } from "~/components/assets";
+import { GradientView } from "~/components/assets/gradient-view";
+import { Button } from "~/components/buttons";
+import IconButton from "~/components/buttons/icon-button";
+import { SwitchWalletButton } from "~/components/buttons/switch-wallet";
+import { CheckBox, MenuDropdown, MenuToggle } from "~/components/control";
+import { InputBox } from "~/components/input";
+import { Disableable, InputProps } from "~/components/types";
+import { useWindowSize } from "~/hooks";
+import { truncateEthAddress } from "~/integrations/ethereum/metamask-utils";
+import { WalletDisplay } from "~/integrations/wallets";
+import { useStore } from "~/stores";
+import { formatICNSName } from "~/utils/string";
+
+type PathSource = "counterpartyAccount" | "account";
 
 export type TransferProps = {
   isWithdraw: boolean;
   /** If there is a bridge it is assumed there is a nonKeplr wallet and the switch button will be shown. */
   transferPath: [
-    { address: string; networkName: string; iconUrl?: string },
-    { address: string; networkName: string; iconUrl?: string }
+    {
+      address: string;
+      networkName: string;
+      source: PathSource;
+      iconUrl?: string;
+    },
+    {
+      address: string;
+      networkName: string;
+      source: PathSource;
+      iconUrl?: string;
+    }
   ];
   selectedWalletDisplay?: WalletDisplay;
   isOsmosisAccountLoaded: boolean;
-  onRequestSwitchWallet?: () => void;
+  onRequestSwitchWallet?: (source: PathSource) => void;
   availableBalance?: CoinPretty;
   editWithdrawAddrConfig?: {
     customAddress: string;
@@ -43,6 +59,7 @@ export type TransferProps = {
     setIsUsingWrapped: (isUsingWrapped: boolean) => void;
     nativeDenom: string;
     wrapDenom: string;
+    disabled?: boolean;
   };
   /** Required, can be hardcoded estimate. */
   transferFee?: CoinPretty;
@@ -76,16 +93,10 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
     const t = useTranslation();
 
     const [isEditingWithdrawAddr, setIsEditingWithdrawAddr] = useState(false);
+    const [isOptionsDropdownOpen, setIsOptionsDropdownOpen] = useState(false);
 
-    // Mobile only - brief copy to clipboard notification
-    const [showCopied, setShowCopied] = useState(false);
-    useEffect(() => {
-      if (showCopied) {
-        setTimeout(() => {
-          setShowCopied(false);
-        }, 5000);
-      }
-    }, [showCopied, setShowCopied]);
+    const dropdownContainerRef = useRef<HTMLDivElement>(null);
+    useClickAway(dropdownContainerRef, () => setIsOptionsDropdownOpen(false));
 
     const maxFromChars = isEditingWithdrawAddr
       ? 13 // can't be on mobile
@@ -120,6 +131,18 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
         ?.primaryName
     );
 
+    const isSwitchWalletVisibleForTo =
+      to.address.length > 0 &&
+      !to.address.startsWith("osmo") &&
+      !isEditingWithdrawAddr &&
+      selectedWalletDisplay;
+
+    const isEditButtonVisible =
+      isWithdraw &&
+      editWithdrawAddrConfig &&
+      !disabled &&
+      !isEditingWithdrawAddr;
+
     return (
       <div className="flex flex-col gap-11 overflow-x-auto md:gap-4">
         {toggleUseWrappedConfig && (
@@ -145,6 +168,7 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
                   ? toggleUseWrappedConfig.wrapDenom
                   : toggleUseWrappedConfig.nativeDenom
               }
+              disabled={toggleUseWrappedConfig.disabled}
             />
           </div>
         )}
@@ -156,8 +180,7 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
         />
         <div
           className={classNames(
-            "body1 flex gap-4 text-osmoverse-400 transition-opacity duration-300 md:gap-2",
-            { "opacity-30": disabled }
+            "body1 flex gap-4 text-osmoverse-400 transition-opacity duration-300 md:gap-2"
           )}
         >
           <div
@@ -185,11 +208,11 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
                   truncateEthAddress(from.address)
                 )}
                 {from.address.length > 0 &&
-                  !from.address.includes("osmo") &&
+                  !from.address.startsWith("osmo") &&
                   selectedWalletDisplay && (
                     <SwitchWalletButton
                       selectedWalletIconUrl={selectedWalletDisplay.iconUrl}
-                      onClick={() => onRequestSwitchWallet?.()}
+                      onClick={() => onRequestSwitchWallet?.(from.source)}
                       disabled={disabled}
                     />
                   )}
@@ -205,7 +228,7 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
               }
             )}
           >
-            <div className="md:caption mx-auto flex flex-wrap items-center justify-center gap-2">
+            <div className="md:caption mx-auto flex flex-nowrap items-center  justify-center gap-2 sm:flex-wrap">
               {!isEditingWithdrawAddr &&
                 !disabled &&
                 (!to.address.startsWith("0x") || to.address.length === 0 ? (
@@ -223,50 +246,113 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
                 ) : (
                   truncateEthAddress(to.address)
                 ))}
-              {to.address.length > 0 &&
-              !to.address.includes("osmo") &&
-              selectedWalletDisplay ? (
-                <SwitchWalletButton
-                  selectedWalletIconUrl={selectedWalletDisplay.iconUrl}
-                  onClick={() => onRequestSwitchWallet?.()}
-                  disabled={disabled}
-                />
-              ) : undefined}
-              {isWithdraw &&
-                editWithdrawAddrConfig &&
-                !disabled &&
-                !isEditingWithdrawAddr && (
-                  <Button
-                    mode="amount"
-                    onClick={() => {
-                      setIsEditingWithdrawAddr(true);
-                      editWithdrawAddrConfig.setCustomAddress(to.address);
+              <div
+                className={classNames(
+                  "flex items-center gap-2",
+                  isEditingWithdrawAddr && "w-full flex-col"
+                )}
+              >
+                {/* To avoid overflowing, display menu dropdown when edit and switch wallet are visible. */}
+                {isEditButtonVisible && isSwitchWalletVisibleForTo ? (
+                  <div
+                    ref={dropdownContainerRef}
+                    className="hover:pointer-cursor relative"
+                    onClick={(e) => {
+                      e.preventDefault();
                     }}
                   >
-                    {t("assets.ibcTransfer.buttonEdit")}
-                  </Button>
+                    <IconButton
+                      icon={<Icon id="more-menu" className="h-6 w-6" />}
+                      aria-label="Menu"
+                      onClick={() =>
+                        setIsOptionsDropdownOpen(!isOptionsDropdownOpen)
+                      }
+                      mode="unstyled"
+                    />
+                    <MenuDropdown
+                      className="top-full right-0"
+                      isOpen={isOptionsDropdownOpen}
+                      options={[
+                        {
+                          id: "switch-wallet",
+                          display: (
+                            <div className="flex gap-2 whitespace-nowrap">
+                              <div className="mt-[2px] h-[16px] w-[16px]">
+                                <Image
+                                  src={selectedWalletDisplay!.iconUrl}
+                                  width={16}
+                                  height={16}
+                                  alt="wallet icon"
+                                />
+                              </div>
+                              <p>Switch wallet</p>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: "edit-address",
+                          display: "Edit address",
+                        },
+                      ]}
+                      onSelect={(id) => {
+                        setIsOptionsDropdownOpen(false);
+
+                        if (id === "switch-wallet") {
+                          onRequestSwitchWallet?.(to.source);
+                        }
+
+                        if (id === "edit-address") {
+                          setIsEditingWithdrawAddr(true);
+                          editWithdrawAddrConfig.setCustomAddress(to.address);
+                        }
+                      }}
+                      isFloating
+                    />
+                  </div>
+                ) : (
+                  <>
+                    {isSwitchWalletVisibleForTo ? (
+                      <SwitchWalletButton
+                        selectedWalletIconUrl={selectedWalletDisplay!.iconUrl}
+                        onClick={() => onRequestSwitchWallet?.(to.source)}
+                        disabled={disabled}
+                      />
+                    ) : undefined}
+                    {isEditButtonVisible && (
+                      <Button
+                        mode="amount"
+                        onClick={() => {
+                          setIsEditingWithdrawAddr(true);
+                          editWithdrawAddrConfig.setCustomAddress(to.address);
+                        }}
+                      >
+                        {t("assets.ibcTransfer.buttonEdit")}
+                      </Button>
+                    )}
+                  </>
                 )}
-              {isEditingWithdrawAddr && editWithdrawAddrConfig && (
-                <InputBox
-                  className="w-full"
-                  style="no-border"
-                  currentValue={editWithdrawAddrConfig.customAddress}
-                  disabled={disabled}
-                  onInput={(value) => {
-                    editWithdrawAddrConfig.setDidAckWithdrawRisk(false);
-                    editWithdrawAddrConfig.setCustomAddress(value);
-                  }}
-                  labelButtons={[
-                    {
-                      label: t("assets.ibcTransfer.buttonEnter"),
-                      className:
-                        "bg-wosmongton-100 hover:bg-wosmongton-100 border-0 rounded-md",
-                      onClick: () => setIsEditingWithdrawAddr(false),
-                      disabled: !editWithdrawAddrConfig.isValid,
-                    },
-                  ]}
-                />
-              )}
+                {isEditingWithdrawAddr && editWithdrawAddrConfig && (
+                  <InputBox
+                    className="w-full"
+                    style="no-border"
+                    currentValue={editWithdrawAddrConfig.customAddress}
+                    disabled={disabled}
+                    onInput={(value) => {
+                      editWithdrawAddrConfig.setDidAckWithdrawRisk(false);
+                      editWithdrawAddrConfig.setCustomAddress(value);
+                    }}
+                    labelButtons={[
+                      {
+                        label: t("assets.ibcTransfer.buttonEnter"),
+                        className:
+                          "bg-wosmongton-100 hover:bg-wosmongton-100 border-0 rounded-md",
+                        onClick: () => setIsEditingWithdrawAddr(false),
+                        disabled: !editWithdrawAddrConfig.isValid,
+                      },
+                    ]}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -346,10 +432,8 @@ export const Transfer: FunctionComponent<TransferProps> = observer(
                 <div className="mx-auto">
                   <CheckBox
                     isOn={editWithdrawAddrConfig.didAckWithdrawRisk}
-                    className="-top-0.5 after:h-6 after:w-6 after:rounded-[10px] after:!border-superfluid checked:after:bg-superfluid"
-                    checkClassName="-top-1 -left-0.5 h-6 w-6 bg-superfluid rounded-[10px]"
-                    checkMarkClassName="top-[1px] -left-[0.5px] h-6 w-6"
-                    checkMarkIconUrl="/icons/check-mark-dark.svg"
+                    className="after:h-6 after:w-6 after:rounded-[10px] after:!border-superfluid checked:after:bg-superfluid"
+                    checkClassName="rounded-[10px]"
                     onToggle={() =>
                       editWithdrawAddrConfig.setDidAckWithdrawRisk(
                         !editWithdrawAddrConfig.didAckWithdrawRisk

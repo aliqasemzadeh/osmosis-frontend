@@ -1,17 +1,18 @@
 import classNames from "classnames";
-import Image from "next/image";
 import { FunctionComponent } from "react";
 
-import { PoolAssetInfo } from "./types";
+import { PoolAssetInfo } from "~/components/assets/types";
 
 interface Props {
   assets: PoolAssetInfo[] | undefined;
   size?: "sm" | "md";
+  className?: string;
 }
 
 export const PoolAssetsIcon: FunctionComponent<Props> = ({
   assets,
   size = "md",
+  className,
 }) => {
   if (!assets) return null;
   return (
@@ -19,7 +20,8 @@ export const PoolAssetsIcon: FunctionComponent<Props> = ({
       style={{ width: `${assets.slice(undefined, 4).length * 30}px` }}
       className={classNames(
         "relative flex h-fit items-center",
-        size === "md" ? "h-[50px]" : "h-[40px]"
+        size === "md" ? "h-[50px]" : "h-[40px]",
+        className
       )}
     >
       {assets.map(({ coinDenom, coinImageUrl }, index) =>
@@ -36,7 +38,7 @@ export const PoolAssetsIcon: FunctionComponent<Props> = ({
                 [`h-[2.5rem] w-[2.5rem]`]: size === "sm",
                 "shrink-0": index > 0,
               },
-              "absolute flex items-center justify-center overflow-hidden"
+              "absolute flex items-center justify-center "
             )}
           >
             {index > 2 ? (
@@ -44,14 +46,14 @@ export const PoolAssetsIcon: FunctionComponent<Props> = ({
                 assets.length - 3
               }`}</div>
             ) : coinImageUrl ? (
-              <Image
+              <img
                 src={coinImageUrl}
                 alt={coinDenom}
                 width={size === "md" ? 50 : 40}
                 height={size === "md" ? 50 : 40}
               />
             ) : (
-              <Image
+              <img
                 src="/icons/question-mark.svg"
                 alt="no token icon"
                 width={size === "md" ? 50 : 40}

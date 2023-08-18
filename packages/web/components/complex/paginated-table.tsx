@@ -1,28 +1,27 @@
 import { flexRender, Row, Table } from "@tanstack/react-table";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import Image from "next/image";
+import classNames from "classnames";
+import { observer } from "mobx-react-lite";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useRef } from "react";
-import { useIntersection } from "react-use";
+import { useEffect } from "react";
 
-import { IS_FRONTIER } from "../../config";
-import { useWindowSize } from "../../hooks";
-import { Pool } from "./all-pools-table";
+import { Icon } from "~/components/assets";
+import { AssetCard } from "~/components/cards";
+import { useWindowSize } from "~/hooks";
+import { ObservablePoolWithMetric } from "~/stores/derived-data";
 
 type Props = {
   mobileSize?: number;
   paginate: () => void;
-  renderMobileItem?: (row: Row<Pool>) => React.ReactNode;
   size: number;
-  table: Table<Pool>;
+  table: Table<ObservablePoolWithMetric>;
   topOffset: number;
 };
 
-const PaginatedTable = ({
+export const PaginatedTable = ({
   mobileSize,
   paginate,
-  renderMobileItem,
   size,
   table,
   topOffset,
@@ -31,13 +30,6 @@ const PaginatedTable = ({
 
   const { rows } = table.getRowModel();
   const router = useRouter();
-
-  const intersectionRef = useRef(null);
-  const intersection = useIntersection(intersectionRef, {
-    root: null,
-    rootMargin: "0px",
-    threshold: 0,
-  });
 
   const rowVirtualizer = useWindowVirtualizer({
     count: rows.length,
@@ -54,11 +46,24 @@ const PaginatedTable = ({
         (virtualRows?.[virtualRows.length - 1]?.end || 0)
       : 0;
 
+  const lastRow = rows[rows.length - 1];
+  const lastVirtualRow = virtualRows[virtualRows.length - 1];
   useEffect(() => {
-    if (intersection && intersection.intersectionRatio < 1) {
+    let isMounted = true; // helps us avoid react console warnings
+
+    if (
+      isMounted &&
+      lastRow &&
+      lastVirtualRow &&
+      lastRow.index === lastVirtualRow.index
+    ) {
       paginate();
     }
-  }, [intersection, paginate]);
+
+    return () => {
+      isMounted = false; // cleanup
+    };
+  }, [lastRow, lastVirtualRow, paginate]);
 
   if (isMobile) {
     return (
@@ -70,11 +75,11 @@ const PaginatedTable = ({
         }}
       >
         {virtualRows.map((virtualRow) => {
-          const row = rows[virtualRow.index] as Row<Pool>;
+          const row = rows[virtualRow.index] as Row<ObservablePoolWithMetric>;
           return (
             <Link
-              key={row.original[0].poolId}
-              href={`/pool/${row.original[0].poolId}`}
+              key={row.original.queryPool.id}
+              href={`/pool/${row.original.queryPool.id}`}
             >
               <a
                 style={{
@@ -86,7 +91,7 @@ const PaginatedTable = ({
                   transform: `translateY(${virtualRow.start - topOffset}px)`,
                 }}
               >
-                {renderMobileItem?.(row)}
+                <MobileTableRow row={row} />
               </a>
             </Link>
           );
@@ -97,56 +102,44 @@ const PaginatedTable = ({
 
   return (
     <table className="w-full">
-      <thead className="z-[51] m-0">
+      <thead>
         {table.getHeaderGroups().map((headerGroup) => (
           <tr key={headerGroup.id}>
-            {headerGroup.headers.map((header) => {
-              return (
-                <th key={header.id} colSpan={header.colSpan}>
-                  {header.isPlaceholder ? null : (
-                    <div
-                      {...{
-                        className: header.column.getCanSort()
-                          ? "cursor-pointer select-none"
-                          : "",
-                        onClick: header.column.getToggleSortingHandler(),
-                      }}
-                    >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                      {{
-                        asc: (
-                          <Image
-                            alt="ascending"
-                            src={
-                              IS_FRONTIER
-                                ? "/icons/sort-up-white.svg"
-                                : "/icons/sort-up.svg"
-                            }
-                            height={16}
-                            width={16}
-                          />
-                        ),
-                        desc: (
-                          <Image
-                            alt="descending"
-                            src={
-                              IS_FRONTIER
-                                ? "/icons/sort-down-white.svg"
-                                : "/icons/sort-down.svg"
-                            }
-                            height={16}
-                            width={16}
-                          />
-                        ),
-                      }[header.column.getIsSorted() as string] ?? null}
-                    </div>
-                  )}
-                </th>
-              );
-            })}
+            {headerGroup.headers.map((header, i) => (
+              <th key={header.id} colSpan={header.colSpan}>
+                {header.isPlaceholder ? null : (
+                  <div
+                    className={classNames(
+                      {
+                        "flex cursor-pointer select-none items-center gap-2":
+                          header.column.getCanSort(),
+                      },
+                      i === 0 ? "justify-start" : "justify-end"
+                    )}
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                    {{
+                      asc: (
+                        <Icon
+                          id="sort-up"
+                          className="h-[16px] w-[7px] text-osmoverse-300"
+                        />
+                      ),
+                      desc: (
+                        <Icon
+                          id="sort-down"
+                          className="h-[16px] w-[7px] text-osmoverse-300"
+                        />
+                      ),
+                    }[header.column.getIsSorted() as string] ?? null}
+                  </div>
+                )}
+              </th>
+            ))}
           </tr>
         ))}
       </thead>
@@ -156,23 +149,23 @@ const PaginatedTable = ({
             <td style={{ height: `${paddingTop - topOffset}px` }} />
           </tr>
         )}
-        {virtualRows.map((virtualRow, i) => {
-          const row = rows[virtualRow.index] as Row<Pool>;
+        {virtualRows.map((virtualRow) => {
+          const row = rows[virtualRow.index] as Row<ObservablePoolWithMetric>;
           return (
             <tr
               key={row.id}
               className="transition-colors focus-within:bg-osmoverse-700 focus-within:outline-none hover:cursor-pointer hover:bg-osmoverse-800"
-              ref={i === virtualRows.length - 1 ? intersectionRef : null}
-              onClick={() => router.push(`/pool/${row.original[0].poolId}`)}
+              onClick={() => router.push(`/pool/${row.original.queryPool.id}`)}
             >
               {row.getVisibleCells().map((cell) => {
                 return (
-                  <td key={cell.id} onClick={(e) => e.stopPropagation()}>
+                  <td key={cell.id}>
                     <Link
-                      href={`/pool/${row.original[0].poolId}`}
+                      href={`/pool/${row.original.queryPool.id}`}
                       key={virtualRow.index}
+                      passHref
                     >
-                      <a className="focus:outline-none">
+                      <a onClick={(e) => e.stopPropagation()}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -195,4 +188,28 @@ const PaginatedTable = ({
   );
 };
 
-export default PaginatedTable;
+const MobileTableRow = observer(
+  ({ row }: { row: Row<ObservablePoolWithMetric> }) => {
+    const poolAssets = row.original.queryPool.poolAssets.map((poolAsset) => ({
+      coinImageUrl: poolAsset.amount.currency.coinImageUrl,
+      coinDenom: poolAsset.amount.currency.coinDenom,
+    }));
+
+    return (
+      <AssetCard
+        coinDenom={poolAssets.map((asset) => asset.coinDenom).join("/")}
+        metrics={[
+          {
+            label: "TVL",
+            value: row.original.liquidity.toString(),
+          },
+          {
+            label: "APR",
+            value: row.original.apr.toString(),
+          },
+        ]}
+        coinImageUrl={poolAssets}
+      />
+    );
+  }
+);

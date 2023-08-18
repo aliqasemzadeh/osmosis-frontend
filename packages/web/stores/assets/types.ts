@@ -1,6 +1,7 @@
 import { AppCurrency } from "@keplr-wallet/types";
 import { CoinPretty, PricePretty } from "@keplr-wallet/unit";
-import { FiatRampKey, OriginBridgeInfo } from "../../integrations/bridge-info";
+
+import { FiatRampKey, OriginBridgeInfo } from "~/integrations/bridge-info";
 
 export interface IBCAsset {
   counterpartyChainId: string;
@@ -13,7 +14,7 @@ export interface IBCAsset {
   // Disable the deposit, withdraw button and show the tooltip.
   isUnstable?: boolean;
 
-  /** Is asset incentivized or strategically worth including in main vs frontier. */
+  /** Is asset incentivized or strategically worth including in main vs frontier (permissionless). */
   isVerified?: boolean;
   // If the asset is from ics20-cw20
   ics20ContractAddress?: string;
@@ -41,6 +42,14 @@ export interface IBCChainIdentity {
   chainName: string;
 }
 
+export type FeeCurrency = AppCurrency & {
+  gasPriceStep?: {
+    low: number;
+    average: number;
+    high: number;
+  };
+};
+
 export type PeggedCurrency = AppCurrency & {
   originCurrency?: AppCurrency & {
     /** For assets that are pegged/stablecoins. */
@@ -53,6 +62,7 @@ export interface IBCBalance extends CoinBalance {
   sourceChannelId: string;
   destChannelId: string;
   isUnstable?: boolean;
+  isVerified: boolean;
   originBridgeInfo?: OriginBridgeInfo;
   fiatRamps?: { rampKey: FiatRampKey; assetKey: string }[];
 }

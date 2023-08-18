@@ -1,218 +1,142 @@
 import { Dec } from "@keplr-wallet/unit";
 import { observer } from "mobx-react-lite";
-import type { NextPage } from "next";
-import { useMemo, useRef } from "react";
+import type { GetStaticProps, InferGetServerSidePropsType } from "next";
+import { useEffect, useMemo, useRef } from "react";
 
+import { Ad, AdCMS } from "~/components/ad-banner/ad-banner-types";
 import { ProgressiveSvgImage } from "~/components/progressive-svg-image";
-import { TradeClipboard } from "~/components/trade-clipboard";
+import { SwapTool } from "~/components/swap-tool";
+import { EventName, IS_TESTNET } from "~/config";
+import adCMSData from "~/config/ads-banner.json";
+import { useAmplitudeAnalytics } from "~/hooks";
+import { useFeatureFlags } from "~/hooks/use-feature-flags";
+import { useWalletSelect } from "~/hooks/wallet-select";
 import { useStore } from "~/stores";
+import { UnverifiedAssetsState } from "~/stores/user-settings";
 
-import { EventName, IS_FRONTIER } from "../config";
-import { useAmplitudeAnalytics } from "../hooks";
+interface HomeProps {
+  ads: Ad[];
+}
 
-const Home: NextPage = observer(function () {
-  const { chainStore, queriesStore } = useStore();
+// Create an Axios instance with a 30-second timeout
+// const axiosInstance = axios.create({
+//   timeout: 30000, // 30 seconds
+// });
+
+export const getStaticProps: GetStaticProps<HomeProps> = async () => {
+  let ads: Ad[] = [];
+
+  const adCMS = adCMSData as AdCMS;
+
+  try {
+    // const { data: adCMS }: { data: AdCMS } = await axiosInstance.get(
+    //   ADS_BANNER_URL
+    // );
+    ads = adCMS.banners.filter(({ featured }) => featured);
+  } catch (error) {
+    console.error("Error fetching ads:", error);
+  }
+
+  return { props: { ads } };
+};
+
+const Home = ({ ads }: InferGetServerSidePropsType<typeof getStaticProps>) => {
+  const { chainStore, queriesStore, priceStore, userSettings } = useStore();
   const { chainId } = chainStore.osmosis;
 
-  const queries = queriesStore.get(chainId);
-  const queryPools = queries.osmosis!.queryGammPools;
+  const { isLoading: isWalletLoading } = useWalletSelect();
 
-  // If pool has already passed once, it will be passed immediately without recalculation.
-  const poolsPassed = useRef<Map<string, boolean>>(new Map());
+  const queries = queriesStore.get(chainId);
+  const queryPools = queries.osmosis!.queryPools;
+  const showUnverified =
+    userSettings.getUserSettingById<UnverifiedAssetsState>("unverified-assets")
+      ?.state?.showUnverifiedAssets;
+
   const allPools = queryPools.getAllPools();
+
+  const flags = useFeatureFlags();
+
   // Pools should be memoized before passing to trade in config
   const pools = useMemo(
     () =>
       allPools
         .filter((pool) => {
-          // TODO: If not on production environment, this logic should pass all pools (or other selection standard).
+          // include all pools on testnet env
+          if (IS_TESTNET) return true;
 
-          // Trim not useful pools.
+          if (pool.id === "895") return false;
 
-          const passed = poolsPassed.current.get(pool.id);
-          if (passed) {
-            return true;
-          }
-
-          // https://github.com/osmosis-labs/osmosis-frontend/issues/843
-          if (pool.id === "800") {
+          // filter concentrated pools if feature flag is not enabled
+          if (pool.type === "concentrated" && !flags.concentratedLiquidity)
             return false;
-          }
 
-          // There is currently no good way to pick a pool that is worthwhile.
-          // For now, based on the mainnet, only those pools with assets above a certain value are calculated for swap.
+          if (pool.type === "concentrated" || pool.type === "stable")
+            return true;
 
-          let hasEnoughAssets = false;
-
-          for (const asset of pool.poolAssets) {
-            // Probably, the pools that include gamm token may be created mistakenly by users.
-            if (
-              asset.amount.currency.coinMinimalDenom.startsWith("gamm/pool/")
-            ) {
-              return false;
-            }
-
-            // Only pools with at least 1000 osmo are dealt with.
-            if (asset.amount.currency.coinMinimalDenom === "uosmo") {
-              if (asset.amount.toDec().gt(new Dec(1000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // Only pools with at least 10 ion are dealt with.
-            if (asset.amount.currency.coinMinimalDenom === "uion") {
-              if (asset.amount.toDec().gt(new Dec(10))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // Only pools with at least 1000 atom are dealt with.
-            if (
-              "originChainId" in asset.amount.currency &&
-              asset.amount.currency.coinMinimalDenom ===
-                "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2"
-            ) {
-              if (asset.amount.toDec().gt(new Dec(1000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // only pools with at least 10,000 USDC
-            if (
-              "originChainId" in asset.amount.currency &&
-              asset.amount.currency.coinMinimalDenom ===
-                "ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858"
-            ) {
-              if (asset.amount.toDec().gt(new Dec(10_000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // only pools with at least 10,000 DAI
-            if (
-              "originChainId" in asset.amount.currency &&
-              asset.amount.currency.coinMinimalDenom ===
-                "ibc/0CD3A0285E1341859B5E86B6AB7682F023D03E97607CCC1DC95706411D866DF7"
-            ) {
-              if (asset.amount.toDec().gt(new Dec(10_000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // only pools with at least 10,000 USDT
-            if (
-              "originChainId" in asset.amount.currency &&
-              asset.amount.currency.coinMinimalDenom ===
-                "ibc/8242AD24008032E457D2E12D46588FD39FB54FB29680C6C7663D296B383C37C4"
-            ) {
-              if (asset.amount.toDec().gt(new Dec(10_000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // only pools with at least 1,000,000 STARS
-            if (
-              "originChainId" in asset.amount.currency &&
-              asset.amount.currency.coinMinimalDenom ===
-                "ibc/987C17B11ABC2B20019178ACE62929FE9840202CE79498E29FE8E5CB02B7C0A4"
-            ) {
-              if (asset.amount.toDec().gt(new Dec(1_000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // only pools with at least 10,000 JUNO
-            if (
-              "originChainId" in asset.amount.currency &&
-              asset.amount.currency.coinMinimalDenom ===
-                "ibc/46B44899322F3CD854D2D46DEEF881958467CDD4B3B10086DA49296BBED94BED"
-            ) {
-              if (asset.amount.toDec().gt(new Dec(10_000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-
-            // only pools with at least 35,000 EVMOS
-            if (
-              "originChainId" in asset.amount.currency &&
-              asset.amount.currency.coinMinimalDenom ===
-                "ibc/6AE98883D4D5D5FF9E50D7130F1305DA2FFA0C652D1DD9C123657C6B4EB2DF8A"
-            ) {
-              if (asset.amount.toDec().gt(new Dec(35_000))) {
-                hasEnoughAssets = true;
-                break;
-              }
-            }
-          }
-
-          if (hasEnoughAssets) {
-            poolsPassed.current.set(pool.id, true);
-          }
-
-          return hasEnoughAssets;
+          // some min TVL for balancer pools
+          return pool
+            .computeTotalValueLocked(priceStore)
+            .toDec()
+            .gte(new Dec(showUnverified ? 1_000 : 10_000));
         })
-        .map((pool) => pool.pool),
-    [allPools]
+        .sort((a, b) => {
+          // sort by TVL to find routes amongst most valuable pools
+          const aTVL = a.computeTotalValueLocked(priceStore);
+          const bTVL = b.computeTotalValueLocked(priceStore);
+
+          return Number(bTVL.sub(aTVL).toDec().toString());
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allPools, priceStore.response, flags.concentratedLiquidity]
   );
+
+  const requestedRemaining = useRef(false);
+  useEffect(() => {
+    if (requestedRemaining.current) return;
+    queryPools.fetchRemainingPools();
+    requestedRemaining.current = true;
+  }, [queryPools]);
 
   useAmplitudeAnalytics({
     onLoadEvent: [EventName.Swap.pageViewed, { isOnHome: true }],
   });
 
   return (
-    <main className="relative h-full bg-osmoverse-900">
-      <div className="absolute h-full w-full">
+    <main className="relative flex h-full items-center overflow-auto bg-osmoverse-900 py-2">
+      <div className="pointer-events-none fixed h-full w-full bg-home-bg-pattern bg-cover bg-repeat-x">
         <svg
           className="absolute h-full w-full lg:hidden"
           pointerEvents="none"
           viewBox="0 0 1300 900"
-          height=""
+          height="900"
           preserveAspectRatio="xMidYMid slice"
         >
           <g>
-            {/* {!IS_FRONTIER && (
-              <ProgressiveSvgImage
-                lowResXlinkHref="/images/osmosis-home-bg-low.png"
-                xlinkHref="/images/osmosis-home-bg.png"
-                x="56"
-                y="220"
-                width="578.7462"
-                height="725.6817"
-              />
-            )} */}
             <ProgressiveSvgImage
-              lowResXlinkHref={
-                IS_FRONTIER ? "/images/osmosis-cowboy-woz-low.png" : undefined
-              }
-              xlinkHref={
-                IS_FRONTIER
-                  ? "/images/osmosis-cowboy-woz.png"
-                  : "/images/quasar-web-bg.png"
-              }
-              x={IS_FRONTIER ? "-100" : "-140"}
-              y={IS_FRONTIER ? "100" : "0"}
-              width={IS_FRONTIER ? "800" : "130%"}
-              height={IS_FRONTIER ? "800" : "100%"}
+              lowResXlinkHref={"/images/supercharged-wosmongton-low.png"}
+              xlinkHref={"/images/supercharged-wosmongton.png"}
+              x="56"
+              y="175"
+              width="578.7462"
+              height="725.6817"
             />
           </g>
         </svg>
       </div>
-      <div className="flex h-full w-full items-center overflow-y-auto overflow-x-hidden">
-        <TradeClipboard
-          containerClassName="w-[27rem] md:mt-mobile-header ml-auto mr-[15%] lg:mx-auto"
-          pools={pools}
-        />
+      <div className="my-auto flex h-auto w-full items-center">
+        <div className="ml-auto mr-[15%] flex w-[27rem] flex-col gap-4 lg:mx-auto md:mt-mobile-header">
+          <SwapTool
+            containerClassName="w-full"
+            memoedPools={pools}
+            isDataLoading={
+              queryPools.isFetching || priceStore.isFetching || isWalletLoading
+            }
+            ads={ads}
+          />
+        </div>
       </div>
     </main>
   );
-});
+};
 
-export default Home;
+export default observer(Home);

@@ -174,6 +174,7 @@ export class ObservableQueryAccountLockedInner extends ObservableChainQuery<Acco
             });
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           const value = map.get(key)!;
           value.amount = value.amount.add(
             new CoinPretty(currency, new Dec(coin.amount))
@@ -227,7 +228,11 @@ export class ObservableQueryAccountLockedInner extends ObservableChainQuery<Acco
               (coin) => coin.denom === currency.coinMinimalDenom
             ) != null
           );
-        });
+        })
+        .filter(
+          (lock) =>
+            Number(lock.duration.replace("s", "")) === duration.asSeconds()
+        );
 
       let coin = new CoinPretty(currency, new Dec(0));
       for (const lock of matchedLocks) {
@@ -273,7 +278,11 @@ export class ObservableQueryAccountLockedInner extends ObservableChainQuery<Acco
         .filter((lock) => {
           // Filter the locked.
           return new Date(lock.end_time).getTime() > 0;
-        });
+        })
+        .filter(
+          (lock) =>
+            Number(lock.duration.replace("s", "")) === duration.asSeconds()
+        );
 
       // End time 별로 구분하기 위한 map. key는 end time의 getTime()의 결과이다.
       const map: Map<
@@ -301,6 +310,7 @@ export class ObservableQueryAccountLockedInner extends ObservableChainQuery<Acco
               });
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const value = map.get(
               time.toString() + "/" + currency.coinMinimalDenom
             )!;
@@ -380,6 +390,7 @@ export class ObservableQueryAccountLockedInner extends ObservableChainQuery<Acco
             });
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           const value = map.get(time)!;
           value.amount = value.amount.add(
             new CoinPretty(currency, new Dec(matchedCoin.amount))

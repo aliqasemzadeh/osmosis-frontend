@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-import { useStore } from "../../stores";
-import { ObservableTransferUIConfig } from "../../stores/assets";
-import { makeLocalStorageKVStore } from "../../stores/kv-store";
-import { useWindowSize } from "../window";
+import { useWindowSize } from "~/hooks";
+import { useStore } from "~/stores";
+import { ObservableTransferUIConfig } from "~/stores/assets";
+import { makeLocalStorageKVStore } from "~/stores/kv-store";
 
 export function useTransferConfig() {
   const { isMobile } = useWindowSize();

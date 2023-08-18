@@ -5,14 +5,14 @@ import { observer } from "mobx-react-lite";
 import Image from "next/image";
 import { FunctionComponent, useEffect, useRef } from "react";
 
+import { Icon } from "~/components/assets";
 import {
   useBooleanWithWindowEvent,
   useFilteredData,
   useWindowSize,
-} from "../../hooks";
-import { TokenSelectModal } from "../../modals";
-import { useStore } from "../../stores";
-import { Icon } from "../assets";
+} from "~/hooks";
+import { TokenSelectModal } from "~/modals";
+import { useStore } from "~/stores";
 
 /** Will display balances if provided `CoinPretty` objects. Assumes denoms are unique. */
 export const TokenSelect: FunctionComponent<{
@@ -43,18 +43,17 @@ export const TokenSelect: FunctionComponent<{
       setDropdownState === undefined ? setIsSelectOpenLocal : setDropdownState;
 
     const inputRef = useRef<HTMLInputElement | null>(null);
-    const selectedToken = tokens.find((token) =>
-      (token instanceof CoinPretty ? token.denom : token.coinDenom).includes(
+    const selectedToken = tokens.find(
+      (token) =>
+        (token instanceof CoinPretty ? token.denom : token.coinDenom) ===
         selectedTokenDenom
-      )
     );
 
     const dropdownTokens = tokens
       .filter(
         (token) =>
-          !(
-            token instanceof CoinPretty ? token.denom : token.coinDenom
-          ).includes(selectedTokenDenom)
+          (token instanceof CoinPretty ? token.denom : token.coinDenom) !==
+          selectedTokenDenom
       )
       .map((token) => ({
         token,

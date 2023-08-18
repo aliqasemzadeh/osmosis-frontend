@@ -1,5 +1,4 @@
 import EventEmitter from "eventemitter3";
-import Image from "next/image";
 import React, {
   FunctionComponent,
   useCallback,
@@ -8,10 +7,11 @@ import React, {
 } from "react";
 import { useTranslation } from "react-multi-lang";
 
-import { useBooleanWithWindowEvent } from "../../../hooks";
-import { MenuDropdown, MenuOption } from "../../control";
-import { BaseCell } from "..";
-import { PoolCompositionCell } from "./pool-composition";
+import { MenuDropdown, MenuOption } from "~/components//control";
+import { Icon } from "~/components/assets";
+import { BaseCell } from "~/components/table";
+import { PoolCompositionCell } from "~/components/table/cells/pool-composition";
+import { useBooleanWithWindowEvent } from "~/hooks";
 
 export interface PoolQuickActionCell
   extends BaseCell,
@@ -113,7 +113,7 @@ export const PoolQuickActionCell: FunctionComponent<
           e.preventDefault();
         }}
       >
-        <Image alt="menu" src="/icons/more-menu.svg" width={24} height={24} />
+        <Icon id="more-menu" className="h-6 w-6" />
         <MenuDropdown
           className="top-full right-0 w-44"
           isOpen={dropdownOpen}

@@ -1,4 +1,4 @@
-import { SourceChain } from "../bridge-info";
+import { SourceChain } from "~/integrations/bridge-info";
 
 const IS_TESTNET = process.env.NEXT_PUBLIC_IS_TESTNET === "true";
 
@@ -44,6 +44,7 @@ export const AxelarChainIds_SourceChainMap: {
       Fantom: "Fantom Testnet",
       Moonbeam: "Moonbase Alpha",
       Polygon: "Mumbai",
+      filecoin: "Filecoin Hyperspace",
     }
   : {
       Avalanche: "Avalanche",
@@ -52,6 +53,8 @@ export const AxelarChainIds_SourceChainMap: {
       Fantom: "Fantom",
       Moonbeam: "Moonbeam",
       Polygon: "Polygon",
+      filecoin: "Filecoin",
+      arbitrum: "Arbitrum",
     };
 
 export type SourceChainTokenConfig = {
